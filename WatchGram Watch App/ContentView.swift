@@ -1,6 +1,6 @@
 import SwiftUI
 import AVFoundation
-import Speech
+import WatchKit
 
 // MARK: - Theme Colors (ClawBot style)
 struct ClawTheme {
@@ -39,8 +39,8 @@ extension Color {
 // MARK: - Main Content View
 struct ContentView: View {
     @StateObject private var viewModel = ChatViewModel()
-    @State private var isRecording = false
     @State private var showOnboarding = !UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
+    @State private var messageText = ""
     
     var body: some View {
         Group {
@@ -65,8 +65,8 @@ struct ContentView: View {
                         messagesView
                     }
                     
-                    // Record button
-                    recordButton
+                    // Voice input using TextField with dictation
+                    voiceInputView
                 }
             }
             .navigationTitle("ClawWatch")
@@ -102,7 +102,7 @@ struct ContentView: View {
                     .font(.system(size: 30))
             }
             
-            Text("Tap to speak")
+            Text("Tap mic to speak")
                 .font(.caption)
                 .foregroundColor(ClawTheme.textSecondary)
             
@@ -135,45 +135,18 @@ struct ContentView: View {
         }
     }
     
-    var recordButton: some View {
-        Button(action: toggleRecording) {
-            ZStack {
-                // Outer glow when recording
-                if isRecording {
-                    Circle()
-                        .fill(ClawTheme.primary.opacity(0.3))
-                        .frame(width: 80, height: 80)
-                        .scaleEffect(isRecording ? 1.2 : 1.0)
-                        .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isRecording)
+    var voiceInputView: some View {
+        // TextField with dictation support - tap mic icon on keyboard
+        TextField("Tap to speak...", text: $messageText)
+            .textFieldStyle(.roundedBorder)
+            .onSubmit {
+                if !messageText.isEmpty {
+                    viewModel.sendMessage(messageText)
+                    messageText = ""
                 }
-                
-                // Main button
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: isRecording ? [ClawTheme.accent, ClawTheme.primary] : [ClawTheme.primary, ClawTheme.secondary],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 60, height: 60)
-                
-                Image(systemName: isRecording ? "stop.fill" : "mic.fill")
-                    .font(.title2)
-                    .foregroundColor(.white)
             }
-        }
-        .buttonStyle(.plain)
-        .padding(.bottom, 8)
-    }
-    
-    func toggleRecording() {
-        if isRecording {
-            viewModel.stopRecording()
-        } else {
-            viewModel.startRecording()
-        }
-        isRecording.toggle()
+            .padding(.horizontal, 8)
+            .padding(.bottom, 4)
     }
 }
 
@@ -205,7 +178,7 @@ struct OnboardingView: View {
                 Text("Tap & Speak")
                     .font(.caption)
                     .fontWeight(.semibold)
-                Text("Your voice becomes a message to your AI assistant")
+                Text("Tap the text field, then the mic to dictate your message")
                     .font(.caption2)
                     .foregroundColor(ClawTheme.textSecondary)
                     .multilineTextAlignment(.center)
@@ -281,10 +254,6 @@ class ChatViewModel: ObservableObject {
     @Published var messages: [ChatMessage] = []
     @Published var isLoading = false
     
-    private var speechRecognizer: SFSpeechRecognizer?
-    private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
-    private var recognitionTask: SFSpeechRecognitionTask?
-    private var audioEngine = AVAudioEngine()
     private let synthesizer = AVSpeechSynthesizer()
     
     // Telegram Bot Configuration
@@ -296,62 +265,6 @@ class ChatViewModel: ObservableObject {
     }
     private var voiceEnabled: Bool {
         UserDefaults.standard.bool(forKey: "voiceResponseEnabled")
-    }
-    
-    init() {
-        speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-GB"))
-        requestPermissions()
-    }
-    
-    func requestPermissions() {
-        SFSpeechRecognizer.requestAuthorization { _ in }
-        AVAudioSession.sharedInstance().requestRecordPermission { _ in }
-    }
-    
-    func startRecording() {
-        recognitionTask?.cancel()
-        recognitionTask = nil
-        
-        let audioSession = AVAudioSession.sharedInstance()
-        do {
-            try audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
-            try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
-        } catch {
-            return
-        }
-        
-        recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
-        
-        let inputNode = audioEngine.inputNode
-        guard let recognitionRequest = recognitionRequest else { return }
-        
-        recognitionRequest.shouldReportPartialResults = true
-        
-        recognitionTask = speechRecognizer?.recognitionTask(with: recognitionRequest) { [weak self] result, error in
-            if let result = result, result.isFinal {
-                self?.sendMessage(result.bestTranscription.formattedString)
-            }
-        }
-        
-        let recordingFormat = inputNode.outputFormat(forBus: 0)
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { buffer, _ in
-            recognitionRequest.append(buffer)
-        }
-        
-        audioEngine.prepare()
-        try? audioEngine.start()
-        
-        // Haptic feedback
-        WKInterfaceDevice.current().play(.start)
-    }
-    
-    func stopRecording() {
-        audioEngine.stop()
-        recognitionRequest?.endAudio()
-        audioEngine.inputNode.removeTap(onBus: 0)
-        
-        // Haptic feedback
-        WKInterfaceDevice.current().play(.stop)
     }
     
     func sendMessage(_ text: String) {
@@ -389,7 +302,9 @@ class ChatViewModel: ObservableObject {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
         // Add context (time, from Watch)
-        let contextText = "[\(Date().formatted(date: .omitted, time: .shortened)) via ClawWatch] \(text)"
+        let timeFormatter = DateFormatter()
+        timeFormatter.dateFormat = "HH:mm"
+        let contextText = "[\(timeFormatter.string(from: Date())) via ClawWatch] \(text)"
         
         let body: [String: Any] = [
             "chat_id": chatId,
