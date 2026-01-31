@@ -8,11 +8,11 @@
     <string>app-store-connect</string>
     <key>teamID</key>
     <string>J7W6QJ77XW</string>
+    <key>signingStyle</key>
+    <string>automatic</string>
     <key>uploadBitcode</key>
     <false/>
     <key>uploadSymbols</key>
     <true/>
-    <key>signingStyle</key>
-    <string>manual</string>
 </dict>
 </plist>
