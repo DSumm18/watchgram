@@ -6,8 +6,6 @@ workflows:
     
     environment:
       xcode: latest
-      groups:
-        - signing
       vars:
         BUNDLE_ID: "com.dsumm.clawwatch.watchkitapp"
         TEAM_ID: "J7W6QJ77XW"
@@ -25,14 +23,8 @@ workflows:
         
       - name: Generate Xcode project
         script: xcodegen generate
-        
-      - name: Set up keychain and certificate
-        script: |
-          keychain initialize
-          echo $CM_CERTIFICATE | base64 --decode > /tmp/cert.p12
-          keychain add-certificates --certificate /tmp/cert.p12 --certificate-password $CM_CERTIFICATE_PASSWORD
           
-      - name: Build watchOS app (no signing for now)
+      - name: Build watchOS app
         script: |
           xcodebuild build \
             -project ClawWatch.xcodeproj \
