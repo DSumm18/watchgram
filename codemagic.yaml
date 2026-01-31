@@ -9,9 +9,6 @@ workflows:
       vars:
         BUNDLE_ID: "com.dsumm.clawwatch.watchkitapp"
         TEAM_ID: "J7W6QJ77XW"
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.dsumm.clawwatch.watchkitapp
       
     triggering:
       events:
@@ -27,7 +24,7 @@ workflows:
       - name: Generate Xcode project
         script: xcodegen generate
         
-      - name: Build watchOS app
+      - name: Build watchOS app (no signing)
         script: |
           xcodebuild build \
             -project ClawWatch.xcodeproj \
@@ -36,15 +33,5 @@ workflows:
             -configuration Release \
             CODE_SIGNING_ALLOWED=NO
             
-      - name: Archive
-        script: |
-          xcodebuild archive \
-            -project ClawWatch.xcodeproj \
-            -scheme "ClawWatch Watch App" \
-            -destination 'generic/platform=watchOS' \
-            -archivePath build/ClawWatch.xcarchive \
-            -configuration Release \
-            CODE_SIGNING_ALLOWED=NO
-    
     artifacts:
-      - build/*.xcarchive
+      - "*.log"
