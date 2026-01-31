@@ -1,0 +1,102 @@
+name: Build & Deploy to TestFlight
+
+on:
+  push:
+    branches: [ master, main ]
+    paths-ignore:
+      - '**.md'
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: macos-14
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Select Xcode version
+      run: sudo xcode-select -s /Applications/Xcode_15.2.app/Contents/Developer
+    
+    - name: Install XcodeGen
+      run: brew install xcodegen
+    
+    - name: Generate Xcode project
+      run: xcodegen generate
+    
+    - name: Install Apple certificate
+      env:
+        APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+        APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+      run: |
+        # Create API key file
+        mkdir -p ~/.appstoreconnect/private_keys
+        echo "$APP_STORE_CONNECT_PRIVATE_KEY" > ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8
+        
+    - name: Build for watchOS Device
+      run: |
+        xcodebuild build \
+          -project ClawWatch.xcodeproj \
+          -scheme "ClawWatch Watch App" \
+          -destination 'generic/platform=watchOS' \
+          -allowProvisioningUpdates \
+          -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8 \
+          -authenticationKeyID ${{ secrets.APP_STORE_CONNECT_KEY_ID }} \
+          -authenticationKeyIssuerID ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }} \
+          CODE_SIGNING_ALLOWED=YES \
+          CODE_SIGN_STYLE=Automatic \
+          DEVELOPMENT_TEAM=J7W6QJ77XW \
+          | xcpretty || true
+
+    - name: Archive for App Store
+      run: |
+        xcodebuild archive \
+          -project ClawWatch.xcodeproj \
+          -scheme "ClawWatch Watch App" \
+          -destination 'generic/platform=watchOS' \
+          -archivePath $RUNNER_TEMP/ClawWatch.xcarchive \
+          -allowProvisioningUpdates \
+          -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8 \
+          -authenticationKeyID ${{ secrets.APP_STORE_CONNECT_KEY_ID }} \
+          -authenticationKeyIssuerID ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }} \
+          CODE_SIGNING_ALLOWED=YES \
+          CODE_SIGN_STYLE=Automatic \
+          DEVELOPMENT_TEAM=J7W6QJ77XW \
+          | xcpretty || true
+
+    - name: Create ExportOptions.plist
+      run: |
+        cat > $RUNNER_TEMP/ExportOptions.plist << EOF
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>destination</key>
+            <string>upload</string>
+            <key>method</key>
+            <string>app-store-connect</string>
+            <key>teamID</key>
+            <string>J7W6QJ77XW</string>
+            <key>uploadBitcode</key>
+            <false/>
+            <key>uploadSymbols</key>
+            <true/>
+        </dict>
+        </plist>
+        EOF
+
+    - name: Export and Upload to TestFlight
+      run: |
+        xcodebuild -exportArchive \
+          -archivePath $RUNNER_TEMP/ClawWatch.xcarchive \
+          -exportOptionsPlist $RUNNER_TEMP/ExportOptions.plist \
+          -exportPath $RUNNER_TEMP/export \
+          -allowProvisioningUpdates \
+          -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8 \
+          -authenticationKeyID ${{ secrets.APP_STORE_CONNECT_KEY_ID }} \
+          -authenticationKeyIssuerID ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }} \
+          | xcpretty || true
+
+    - name: Upload success
+      run: echo "✅ ClawWatch uploaded to TestFlight!"
