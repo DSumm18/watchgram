@@ -2,101 +2,273 @@ import SwiftUI
 import AVFoundation
 import Speech
 
-struct ContentView: View {
-    @StateObject private var viewModel = ChatViewModel()
-    @State private var isRecording = false
-    
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 12) {
-                // Messages list
-                if viewModel.messages.isEmpty {
-                    Spacer()
-                    VStack(spacing: 8) {
-                        Image(systemName: "message.circle.fill")
-                            .font(.system(size: 40))
-                            .foregroundColor(.blue)
-                        Text("Tap to speak")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    Spacer()
-                } else {
-                    ScrollViewReader { proxy in
-                        ScrollView {
-                            LazyVStack(spacing: 8) {
-                                ForEach(viewModel.messages) { message in
-                                    MessageBubble(message: message)
-                                        .id(message.id)
-                                }
-                            }
-                            .padding(.horizontal, 4)
-                        }
-                        .onChange(of: viewModel.messages.count) { _ in
-                            if let lastMessage = viewModel.messages.last {
-                                withAnimation {
-                                    proxy.scrollTo(lastMessage.id, anchor: .bottom)
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                // Record button
-                Button(action: {
-                    if isRecording {
-                        viewModel.stopRecording()
-                    } else {
-                        viewModel.startRecording()
-                    }
-                    isRecording.toggle()
-                }) {
-                    ZStack {
-                        Circle()
-                            .fill(isRecording ? Color.red : Color.blue)
-                            .frame(width: 60, height: 60)
-                        
-                        Image(systemName: isRecording ? "stop.fill" : "mic.fill")
-                            .font(.title2)
-                            .foregroundColor(.white)
-                    }
-                }
-                .buttonStyle(.plain)
-                .scaleEffect(isRecording ? 1.1 : 1.0)
-                .animation(.easeInOut(duration: 0.2), value: isRecording)
-            }
-            .navigationTitle("WatchGram")
-            .navigationBarTitleDisplayMode(.inline)
+// MARK: - Theme Colors (ClawBot style)
+struct ClawTheme {
+    static let background = Color(hex: "0A0A0F")
+    static let surface = Color(hex: "1A1A24")
+    static let primary = Color(hex: "8B5CF6")      // Purple
+    static let secondary = Color(hex: "06B6D4")    // Cyan
+    static let accent = Color(hex: "F472B6")       // Pink
+    static let text = Color.white
+    static let textSecondary = Color(hex: "9CA3AF")
+    static let success = Color(hex: "10B981")
+}
+
+extension Color {
+    init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let a, r, g, b: UInt64
+        switch hex.count {
+        case 6:
+            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
+        default:
+            (a, r, g, b) = (255, 0, 0, 0)
         }
-        .onAppear {
-            viewModel.requestPermissions()
-        }
+        self.init(
+            .sRGB,
+            red: Double(r) / 255,
+            green: Double(g) / 255,
+            blue: Double(b) / 255,
+            opacity: Double(a) / 255
+        )
     }
 }
 
+// MARK: - Main Content View
+struct ContentView: View {
+    @StateObject private var viewModel = ChatViewModel()
+    @State private var isRecording = false
+    @State private var showOnboarding = !UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
+    
+    var body: some View {
+        Group {
+            if showOnboarding {
+                OnboardingView(isPresented: $showOnboarding)
+            } else {
+                mainView
+            }
+        }
+    }
+    
+    var mainView: some View {
+        NavigationStack {
+            ZStack {
+                ClawTheme.background.ignoresSafeArea()
+                
+                VStack(spacing: 8) {
+                    // Messages or welcome
+                    if viewModel.messages.isEmpty {
+                        welcomeView
+                    } else {
+                        messagesView
+                    }
+                    
+                    // Record button
+                    recordButton
+                }
+            }
+            .navigationTitle("ClawWatch")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink(destination: SettingsView()) {
+                        Image(systemName: "gear")
+                            .foregroundColor(ClawTheme.secondary)
+                    }
+                }
+            }
+        }
+    }
+    
+    var welcomeView: some View {
+        VStack(spacing: 12) {
+            Spacer()
+            
+            // Claw icon
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [ClawTheme.primary, ClawTheme.secondary],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 60, height: 60)
+                
+                Text("🦞")
+                    .font(.system(size: 30))
+            }
+            
+            Text("Tap to speak")
+                .font(.caption)
+                .foregroundColor(ClawTheme.textSecondary)
+            
+            Text("to your AI")
+                .font(.caption2)
+                .foregroundColor(ClawTheme.textSecondary.opacity(0.7))
+            
+            Spacer()
+        }
+    }
+    
+    var messagesView: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 8) {
+                    ForEach(viewModel.messages) { message in
+                        MessageBubble(message: message)
+                            .id(message.id)
+                    }
+                }
+                .padding(.horizontal, 4)
+            }
+            .onChange(of: viewModel.messages.count) { _ in
+                if let lastMessage = viewModel.messages.last {
+                    withAnimation {
+                        proxy.scrollTo(lastMessage.id, anchor: .bottom)
+                    }
+                }
+            }
+        }
+    }
+    
+    var recordButton: some View {
+        Button(action: toggleRecording) {
+            ZStack {
+                // Outer glow when recording
+                if isRecording {
+                    Circle()
+                        .fill(ClawTheme.primary.opacity(0.3))
+                        .frame(width: 80, height: 80)
+                        .scaleEffect(isRecording ? 1.2 : 1.0)
+                        .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isRecording)
+                }
+                
+                // Main button
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: isRecording ? [ClawTheme.accent, ClawTheme.primary] : [ClawTheme.primary, ClawTheme.secondary],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 60, height: 60)
+                
+                Image(systemName: isRecording ? "stop.fill" : "mic.fill")
+                    .font(.title2)
+                    .foregroundColor(.white)
+            }
+        }
+        .buttonStyle(.plain)
+        .padding(.bottom, 8)
+    }
+    
+    func toggleRecording() {
+        if isRecording {
+            viewModel.stopRecording()
+        } else {
+            viewModel.startRecording()
+        }
+        isRecording.toggle()
+    }
+}
+
+// MARK: - Onboarding View
+struct OnboardingView: View {
+    @Binding var isPresented: Bool
+    @State private var currentPage = 0
+    
+    var body: some View {
+        TabView(selection: $currentPage) {
+            // Page 1: Welcome
+            VStack(spacing: 12) {
+                Text("🦞")
+                    .font(.system(size: 50))
+                Text("ClawWatch")
+                    .font(.headline)
+                    .foregroundColor(ClawTheme.primary)
+                Text("Your AI on your wrist")
+                    .font(.caption)
+                    .foregroundColor(ClawTheme.textSecondary)
+            }
+            .tag(0)
+            
+            // Page 2: How it works
+            VStack(spacing: 8) {
+                Image(systemName: "mic.fill")
+                    .font(.title)
+                    .foregroundColor(ClawTheme.secondary)
+                Text("Tap & Speak")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                Text("Your voice becomes a message to your AI assistant")
+                    .font(.caption2)
+                    .foregroundColor(ClawTheme.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+            }
+            .tag(1)
+            
+            // Page 3: Setup
+            VStack(spacing: 12) {
+                Image(systemName: "gear")
+                    .font(.title)
+                    .foregroundColor(ClawTheme.primary)
+                Text("Quick Setup")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                Text("Add your Telegram bot token in Settings")
+                    .font(.caption2)
+                    .foregroundColor(ClawTheme.textSecondary)
+                    .multilineTextAlignment(.center)
+                
+                Button("Get Started") {
+                    UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
+                    isPresented = false
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(ClawTheme.primary)
+            }
+            .tag(2)
+        }
+        .tabViewStyle(.page)
+        .background(ClawTheme.background)
+    }
+}
+
+// MARK: - Message Bubble
 struct MessageBubble: View {
     let message: ChatMessage
     
     var body: some View {
         HStack {
             if message.isFromUser {
-                Spacer()
+                Spacer(minLength: 20)
             }
             
             Text(message.text)
-                .font(.caption)
-                .padding(8)
-                .background(message.isFromUser ? Color.blue : Color.gray.opacity(0.3))
-                .foregroundColor(message.isFromUser ? .white : .primary)
-                .cornerRadius(12)
+                .font(.caption2)
+                .padding(10)
+                .background(
+                    message.isFromUser
+                        ? LinearGradient(colors: [ClawTheme.primary, ClawTheme.secondary], startPoint: .leading, endPoint: .trailing)
+                        : LinearGradient(colors: [ClawTheme.surface, ClawTheme.surface], startPoint: .leading, endPoint: .trailing)
+                )
+                .foregroundColor(.white)
+                .cornerRadius(16)
             
             if !message.isFromUser {
-                Spacer()
+                Spacer(minLength: 20)
             }
         }
     }
 }
 
+// MARK: - Data Models
 struct ChatMessage: Identifiable {
     let id = UUID()
     let text: String
@@ -104,6 +276,7 @@ struct ChatMessage: Identifiable {
     let timestamp: Date
 }
 
+// MARK: - View Model
 class ChatViewModel: ObservableObject {
     @Published var messages: [ChatMessage] = []
     @Published var isLoading = false
@@ -121,29 +294,29 @@ class ChatViewModel: ObservableObject {
     private var chatId: String {
         UserDefaults.standard.string(forKey: "telegramChatId") ?? ""
     }
+    private var voiceEnabled: Bool {
+        UserDefaults.standard.bool(forKey: "voiceResponseEnabled")
+    }
     
     init() {
         speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-GB"))
+        requestPermissions()
     }
     
     func requestPermissions() {
-        SFSpeechRecognizer.requestAuthorization { status in
-            // Handle authorization
-        }
+        SFSpeechRecognizer.requestAuthorization { _ in }
+        AVAudioSession.sharedInstance().requestRecordPermission { _ in }
     }
     
     func startRecording() {
-        // Cancel any existing task
         recognitionTask?.cancel()
         recognitionTask = nil
         
-        // Configure audio session
         let audioSession = AVAudioSession.sharedInstance()
         do {
             try audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
             try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
         } catch {
-            print("Audio session error: \(error)")
             return
         }
         
@@ -155,12 +328,8 @@ class ChatViewModel: ObservableObject {
         recognitionRequest.shouldReportPartialResults = true
         
         recognitionTask = speechRecognizer?.recognitionTask(with: recognitionRequest) { [weak self] result, error in
-            if let result = result {
-                let transcription = result.bestTranscription.formattedString
-                
-                if result.isFinal {
-                    self?.sendMessage(transcription)
-                }
+            if let result = result, result.isFinal {
+                self?.sendMessage(result.bestTranscription.formattedString)
             }
         }
         
@@ -170,38 +339,39 @@ class ChatViewModel: ObservableObject {
         }
         
         audioEngine.prepare()
+        try? audioEngine.start()
         
-        do {
-            try audioEngine.start()
-        } catch {
-            print("Audio engine error: \(error)")
-        }
+        // Haptic feedback
+        WKInterfaceDevice.current().play(.start)
     }
     
     func stopRecording() {
         audioEngine.stop()
         recognitionRequest?.endAudio()
         audioEngine.inputNode.removeTap(onBus: 0)
+        
+        // Haptic feedback
+        WKInterfaceDevice.current().play(.stop)
     }
     
     func sendMessage(_ text: String) {
         guard !text.isEmpty else { return }
         
-        // Add user message
         let userMessage = ChatMessage(text: text, isFromUser: true, timestamp: Date())
         DispatchQueue.main.async {
             self.messages.append(userMessage)
         }
         
-        // Send to Telegram
+        // Haptic for send
+        WKInterfaceDevice.current().play(.success)
+        
         sendToTelegram(text)
     }
     
     private func sendToTelegram(_ text: String) {
         guard !botToken.isEmpty, !chatId.isEmpty else {
-            // Show setup required message
             let errorMessage = ChatMessage(
-                text: "Please set up your Telegram bot in Settings",
+                text: "⚙️ Set up your bot in Settings",
                 isFromUser: false,
                 timestamp: Date()
             )
@@ -218,33 +388,34 @@ class ChatViewModel: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
+        // Add context (time, from Watch)
+        let contextText = "[\(Date().formatted(date: .omitted, time: .shortened)) via ClawWatch] \(text)"
+        
         let body: [String: Any] = [
             "chat_id": chatId,
-            "text": text
+            "text": contextText
         ]
         
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
         
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
-            if let error = error {
-                print("Telegram error: \(error)")
-                return
-            }
-            
-            // Message sent successfully
-            // In a real app, we'd set up webhooks or polling for responses
             DispatchQueue.main.async {
-                let confirmMessage = ChatMessage(
-                    text: "✓ Sent",
-                    isFromUser: false,
-                    timestamp: Date()
-                )
-                self?.messages.append(confirmMessage)
+                if error != nil {
+                    let errorMsg = ChatMessage(text: "❌ Failed to send", isFromUser: false, timestamp: Date())
+                    self?.messages.append(errorMsg)
+                } else {
+                    let confirmMsg = ChatMessage(text: "✓ Sent to AI", isFromUser: false, timestamp: Date())
+                    self?.messages.append(confirmMsg)
+                    
+                    // Haptic confirmation
+                    WKInterfaceDevice.current().play(.notification)
+                }
             }
         }.resume()
     }
     
     func speakResponse(_ text: String) {
+        guard voiceEnabled else { return }
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = AVSpeechSynthesisVoice(language: "en-GB")
         utterance.rate = 0.5
@@ -252,6 +423,7 @@ class ChatViewModel: ObservableObject {
     }
 }
 
+// MARK: - Preview
 #Preview {
     ContentView()
 }

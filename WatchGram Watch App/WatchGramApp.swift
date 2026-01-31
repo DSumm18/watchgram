@@ -1,22 +1,11 @@
 import SwiftUI
+import WatchKit
 
 @main
-struct WatchGramApp: App {
+struct ClawWatchApp: App {
     var body: some Scene {
         WindowGroup {
-            TabView {
-                ContentView()
-                    .tabItem {
-                        Label("Chat", systemImage: "message.fill")
-                    }
-                
-                NavigationStack {
-                    SettingsView()
-                }
-                .tabItem {
-                    Label("Settings", systemImage: "gear")
-                }
-            }
+            ContentView()
         }
     }
 }

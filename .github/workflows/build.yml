@@ -1,4 +1,4 @@
-name: Build WatchGram
+name: Build ClawWatch
 
 on:
   push:
@@ -25,16 +25,19 @@ jobs:
       run: xcodegen generate
     
     - name: Show generated files
-      run: ls -la
+      run: |
+        ls -la
+        echo "---"
+        ls -la "WatchGram Watch App/"
     
     - name: Build for watchOS Simulator
       run: |
         xcodebuild build \
-          -project WatchGram.xcodeproj \
-          -scheme "WatchGram Watch App" \
+          -project ClawWatch.xcodeproj \
+          -scheme "ClawWatch Watch App" \
           -destination 'platform=watchOS Simulator,name=Apple Watch Series 9 (45mm)' \
           CODE_SIGNING_ALLOWED=NO \
           | xcpretty || true
     
     - name: Build success
-      run: echo "✅ WatchGram built successfully!"
+      run: echo "✅ ClawWatch built successfully!"
