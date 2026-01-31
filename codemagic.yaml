@@ -4,11 +4,10 @@ workflows:
     max_build_duration: 60
     instance_type: mac_mini_m2
     
-    integrations:
-      app_store_connect: ClawWatch CI
-    
     environment:
       xcode: latest
+      groups:
+        - signing
       vars:
         BUNDLE_ID: "com.dsumm.clawwatch.watchkitapp"
         TEAM_ID: "J7W6QJ77XW"
@@ -27,54 +26,20 @@ workflows:
       - name: Generate Xcode project
         script: xcodegen generate
         
-      - name: Set up keychain
-        script: keychain initialize
-        
-      - name: Add uploaded certificate
+      - name: Set up keychain and certificate
         script: |
-          keychain add-certificates
+          keychain initialize
+          echo $CM_CERTIFICATE | base64 --decode > /tmp/cert.p12
+          keychain add-certificates --certificate /tmp/cert.p12 --certificate-password $CM_CERTIFICATE_PASSWORD
           
-      - name: Fetch or create provisioning profile
-        script: |
-          app-store-connect fetch-signing-files "$BUNDLE_ID" \
-            --platform IOS \
-            --type IOS_APP_STORE \
-            --create
-          
-      - name: Apply profiles
-        script: xcode-project use-profiles
-          
-      - name: Build watchOS app
+      - name: Build watchOS app (no signing for now)
         script: |
           xcodebuild build \
             -project ClawWatch.xcodeproj \
             -scheme "ClawWatch Watch App" \
             -destination 'generic/platform=watchOS' \
             -configuration Release \
-            DEVELOPMENT_TEAM="$TEAM_ID"
-            
-      - name: Archive for App Store
-        script: |
-          xcodebuild archive \
-            -project ClawWatch.xcodeproj \
-            -scheme "ClawWatch Watch App" \
-            -destination 'generic/platform=watchOS' \
-            -archivePath build/ClawWatch.xcarchive \
-            -configuration Release \
-            DEVELOPMENT_TEAM="$TEAM_ID"
-            
-      - name: Export IPA
-        script: |
-          xcodebuild -exportArchive \
-            -archivePath build/ClawWatch.xcarchive \
-            -exportPath build/export \
-            -exportOptionsPlist exportOptions.plist
+            CODE_SIGNING_ALLOWED=NO
     
     artifacts:
-      - build/export/*.ipa
-      - build/*.xcarchive
-      
-    publishing:
-      app_store_connect:
-        auth: integration
-        submit_to_testflight: true
+      - build/**/*.app
