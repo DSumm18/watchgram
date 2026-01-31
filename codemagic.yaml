@@ -29,6 +29,12 @@ workflows:
         
       - name: Generate Xcode project
         script: xcodegen generate
+        
+      - name: Set up code signing
+        script: |
+          keychain initialize
+          keychain add-certificates
+          xcode-project use-profiles
           
       - name: Build watchOS app
         script: |
@@ -37,7 +43,6 @@ workflows:
             -scheme "ClawWatch Watch App" \
             -destination 'generic/platform=watchOS' \
             -configuration Release \
-            CODE_SIGN_STYLE=Automatic \
             DEVELOPMENT_TEAM="$TEAM_ID"
             
       - name: Archive for App Store
@@ -48,7 +53,6 @@ workflows:
             -destination 'generic/platform=watchOS' \
             -archivePath build/ClawWatch.xcarchive \
             -configuration Release \
-            CODE_SIGN_STYLE=Automatic \
             DEVELOPMENT_TEAM="$TEAM_ID"
             
       - name: Export IPA
@@ -56,8 +60,7 @@ workflows:
           xcodebuild -exportArchive \
             -archivePath build/ClawWatch.xcarchive \
             -exportPath build/export \
-            -exportOptionsPlist exportOptions.plist \
-            -allowProvisioningUpdates
+            -exportOptionsPlist exportOptions.plist
     
     artifacts:
       - build/export/*.ipa
