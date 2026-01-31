@@ -138,7 +138,6 @@ struct ContentView: View {
     var voiceInputView: some View {
         // TextField with dictation support - tap mic icon on keyboard
         TextField("Tap to speak...", text: $messageText)
-            .textFieldStyle(.roundedBorder)
             .onSubmit {
                 if !messageText.isEmpty {
                     viewModel.sendMessage(messageText)

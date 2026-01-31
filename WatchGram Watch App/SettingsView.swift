@@ -50,7 +50,6 @@ struct SettingsView: View {
                         .foregroundColor(ClawTheme.textSecondary)
                     TextField("Your chat ID", text: $chatId)
                         .font(.caption)
-                        .keyboardType(.numberPad)
                 }
             }
             
@@ -210,9 +209,6 @@ struct AboutView: View {
         .background(ClawTheme.background)
     }
 }
-
-// Reference ClawTheme from ContentView
-// (In real project, move to separate Theme.swift file)
 
 #Preview {
     NavigationStack {
