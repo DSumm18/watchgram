@@ -1,0 +1,32 @@
+name: WatchGram
+options:
+  bundleIdPrefix: com.dsumm
+  deploymentTarget:
+    watchOS: "10.0"
+
+settings:
+  base:
+    DEVELOPMENT_TEAM: J7R6QL77M4
+
+targets:
+  WatchGram Watch App:
+    type: application
+    platform: watchOS
+    sources:
+      - path: "WatchGram Watch App"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dsumm.watchgram.watchkitapp
+        INFOPLIST_FILE: "WatchGram Watch App/Info.plist"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SWIFT_VERSION: "5.9"
+        CODE_SIGN_STYLE: Automatic
+    info:
+      path: "WatchGram Watch App/Info.plist"
+      properties:
+        CFBundleDisplayName: WatchGram
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "1"
+        WKApplication: true
+        NSSpeechRecognitionUsageDescription: "WatchGram needs speech recognition to convert your voice to text messages."
+        NSMicrophoneUsageDescription: "WatchGram needs microphone access to record your voice messages."
