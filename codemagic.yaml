@@ -4,6 +4,9 @@ workflows:
     max_build_duration: 60
     instance_type: mac_mini_m2
     
+    integrations:
+      app_store_connect: ClawWatch CI
+    
     environment:
       xcode: latest
       vars:
@@ -24,14 +27,54 @@ workflows:
       - name: Generate Xcode project
         script: xcodegen generate
         
-      - name: Build watchOS app (no signing)
+      - name: Set up keychain
+        script: keychain initialize
+        
+      - name: Fetch signing files
+        script: |
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --platform WATCH_OS \
+            --type IOS_APP_STORE \
+            --create
+            
+      - name: Set up signing
+        script: |
+          keychain add-certificates
+          xcode-project use-profiles
+          
+      - name: Build watchOS app
         script: |
           xcodebuild build \
             -project ClawWatch.xcodeproj \
             -scheme "ClawWatch Watch App" \
             -destination 'generic/platform=watchOS' \
             -configuration Release \
-            CODE_SIGNING_ALLOWED=NO
+            DEVELOPMENT_TEAM="$TEAM_ID"
             
+      - name: Archive for App Store
+        script: |
+          xcodebuild archive \
+            -project ClawWatch.xcodeproj \
+            -scheme "ClawWatch Watch App" \
+            -destination 'generic/platform=watchOS' \
+            -archivePath build/ClawWatch.xcarchive \
+            -configuration Release \
+            DEVELOPMENT_TEAM="$TEAM_ID"
+            
+      - name: Export IPA
+        script: |
+          xcodebuild -exportArchive \
+            -archivePath build/ClawWatch.xcarchive \
+            -exportPath build/export \
+            -exportOptionsPlist exportOptions.plist
+    
     artifacts:
-      - "*.log"
+      - build/export/*.ipa
+      - build/*.xcarchive
+      
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        beta_groups:
+          - "External Testers"
