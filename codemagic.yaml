@@ -8,9 +8,10 @@ workflows:
       xcode: latest
       vars:
         BUNDLE_ID: "com.dsumm.clawwatch.watchkitapp"
-        APP_STORE_CONNECT_ISSUER_ID: $APP_STORE_CONNECT_ISSUER_ID
-        APP_STORE_CONNECT_KEY_IDENTIFIER: $APP_STORE_CONNECT_KEY_ID
-        APP_STORE_CONNECT_PRIVATE_KEY: $APP_STORE_CONNECT_PRIVATE_KEY
+        TEAM_ID: "J7W6QJ77XW"
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.dsumm.clawwatch.watchkitapp
       
     triggering:
       events:
@@ -26,16 +27,6 @@ workflows:
       - name: Generate Xcode project
         script: xcodegen generate
         
-      - name: Set up code signing
-        script: |
-          keychain initialize
-          app-store-connect fetch-signing-files "$BUNDLE_ID" \
-            --platform WATCH_OS \
-            --type IOS_APP_STORE \
-            --create
-          keychain add-certificates
-          xcode-project use-profiles
-          
       - name: Build watchOS app
         script: |
           xcodebuild build \
@@ -43,8 +34,7 @@ workflows:
             -scheme "ClawWatch Watch App" \
             -destination 'generic/platform=watchOS' \
             -configuration Release \
-            CODE_SIGN_STYLE=Manual \
-            DEVELOPMENT_TEAM=J7W6QJ77XW
+            CODE_SIGNING_ALLOWED=NO
             
       - name: Archive
         script: |
@@ -54,21 +44,7 @@ workflows:
             -destination 'generic/platform=watchOS' \
             -archivePath build/ClawWatch.xcarchive \
             -configuration Release \
-            CODE_SIGN_STYLE=Manual \
-            DEVELOPMENT_TEAM=J7W6QJ77XW
-            
-      - name: Export IPA
-        script: |
-          xcodebuild -exportArchive \
-            -archivePath build/ClawWatch.xcarchive \
-            -exportPath build/export \
-            -exportOptionsPlist exportOptions.plist
+            CODE_SIGNING_ALLOWED=NO
     
     artifacts:
-      - build/export/*.ipa
       - build/*.xcarchive
-      
-    publishing:
-      app_store_connect:
-        auth: integration
-        submit_to_testflight: true
