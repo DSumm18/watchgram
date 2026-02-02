@@ -84,16 +84,7 @@ struct ContentView: View {
     }
     
     var welcomeView: some View {
-        VStack(spacing: 6) {
-            Text("Hey! I'm Ed 🦞")
-                .font(.caption)
-                .fontWeight(.semibold)
-                .foregroundColor(ClawTheme.text)
-            
-            Text("Tap me to chat!")
-                .font(.caption2)
-                .foregroundColor(ClawTheme.textSecondary)
-            
+        VStack(spacing: 10) {
             Spacer()
             
             // Lobster mic button - THE main interaction
@@ -103,13 +94,13 @@ struct ContentView: View {
                     Circle()
                         .stroke(
                             LinearGradient(
-                                colors: [ClawTheme.primary.opacity(0.6), ClawTheme.secondary.opacity(0.6)],
+                                colors: [ClawTheme.primary, ClawTheme.secondary],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             ),
-                            lineWidth: 3
+                            lineWidth: 4
                         )
-                        .frame(width: 95, height: 95)
+                        .frame(width: 110, height: 110)
                     
                     // Inner circle
                     Circle()
@@ -120,28 +111,28 @@ struct ContentView: View {
                                 endPoint: .bottom
                             )
                         )
-                        .frame(width: 85, height: 85)
+                        .frame(width: 100, height: 100)
                     
                     // Lobster + mic
-                    VStack(spacing: 2) {
+                    VStack(spacing: 4) {
                         Text("🦞")
-                            .font(.system(size: 40))
+                            .font(.system(size: 45))
                         Image(systemName: "mic.fill")
-                            .font(.caption)
+                            .font(.body)
                             .foregroundColor(ClawTheme.secondary)
                     }
                 }
             }
             .buttonStyle(.plain)
-            .sheet(isPresented: $showingInput) {
-                VoiceInputSheet(viewModel: viewModel, isPresented: $showingInput)
+            .fullScreenCover(isPresented: $showingInput) {
+                ChatScreen(viewModel: viewModel, isPresented: $showingInput)
             }
             
-            Spacer()
+            Text("Tap to talk to Ed")
+                .font(.caption)
+                .foregroundColor(ClawTheme.textSecondary)
             
-            Text("Tap the lobster!")
-                .font(.caption2)
-                .foregroundColor(ClawTheme.secondary.opacity(0.7))
+            Spacer()
         }
     }
     
@@ -293,45 +284,95 @@ struct MessageBubble: View {
     }
 }
 
-// MARK: - Voice Input Sheet
-struct VoiceInputSheet: View {
+// MARK: - Chat Screen (Full conversation view)
+struct ChatScreen: View {
     @ObservedObject var viewModel: ChatViewModel
     @Binding var isPresented: Bool
     @State private var messageText = ""
     
     var body: some View {
-        VStack(spacing: 12) {
-            Text("🦞")
-                .font(.title)
-            
-            Text("What's up?")
-                .font(.caption)
-                .foregroundColor(ClawTheme.textSecondary)
-            
-            TextField("Tap mic to speak...", text: $messageText)
-                .multilineTextAlignment(.center)
-            
-            HStack(spacing: 20) {
-                Button("Cancel") {
-                    isPresented = false
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                Button(action: { isPresented = false }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title3)
+                        .foregroundColor(ClawTheme.textSecondary)
                 }
-                .foregroundColor(ClawTheme.textSecondary)
-                
-                Button("Send") {
-                    if !messageText.isEmpty {
-                        viewModel.sendMessage(messageText)
-                        messageText = ""
-                        isPresented = false
+                Spacer()
+                Text("🦞 Ed")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                Spacer()
+                // Balance spacer
+                Image(systemName: "xmark.circle.fill")
+                    .font(.title3)
+                    .foregroundColor(.clear)
+            }
+            .padding(.horizontal, 8)
+            .padding(.top, 4)
+            
+            // Messages
+            if viewModel.messages.isEmpty {
+                Spacer()
+                Text("Say something!")
+                    .font(.caption)
+                    .foregroundColor(ClawTheme.textSecondary)
+                Spacer()
+            } else {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(spacing: 8) {
+                            ForEach(viewModel.messages) { message in
+                                MessageBubble(message: message)
+                                    .id(message.id)
+                            }
+                        }
+                        .padding(.horizontal, 4)
+                    }
+                    .onChange(of: viewModel.messages.count) { _ in
+                        if let lastMessage = viewModel.messages.last {
+                            withAnimation {
+                                proxy.scrollTo(lastMessage.id, anchor: .bottom)
+                            }
+                        }
                     }
                 }
-                .foregroundColor(ClawTheme.primary)
-                .fontWeight(.semibold)
-                .disabled(messageText.isEmpty)
             }
-            .font(.caption)
+            
+            // Voice input - BIG mic button
+            HStack(spacing: 8) {
+                TextField("Tap mic →", text: $messageText)
+                    .font(.caption)
+                    .frame(height: 36)
+                    .onSubmit {
+                        sendIfNotEmpty()
+                    }
+                
+                // Mic/Send button
+                Button(action: sendIfNotEmpty) {
+                    ZStack {
+                        Circle()
+                            .fill(messageText.isEmpty ? ClawTheme.secondary : ClawTheme.primary)
+                            .frame(width: 36, height: 36)
+                        
+                        Image(systemName: messageText.isEmpty ? "mic.fill" : "arrow.up")
+                            .font(.body)
+                            .foregroundColor(.white)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 8)
+            .padding(.bottom, 4)
         }
-        .padding()
         .background(ClawTheme.background)
+    }
+    
+    func sendIfNotEmpty() {
+        guard !messageText.isEmpty else { return }
+        viewModel.sendMessage(messageText)
+        messageText = ""
     }
 }
 
