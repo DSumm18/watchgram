@@ -83,41 +83,35 @@ struct ContentView: View {
     }
     
     var welcomeView: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 8) {
             Spacer()
             
-            // Big mic button
-            Button(action: {
-                // Focus on text field to trigger keyboard/dictation
-            }) {
-                ZStack {
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [ClawTheme.primary, ClawTheme.secondary],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 80, height: 80)
-                        .shadow(color: ClawTheme.primary.opacity(0.5), radius: 10)
-                    
-                    Image(systemName: "mic.fill")
-                        .font(.system(size: 35))
-                        .foregroundColor(.white)
-                }
-            }
-            .buttonStyle(.plain)
+            // Animated lobster
+            Text("🦞")
+                .font(.system(size: 50))
+                .shadow(color: ClawTheme.primary.opacity(0.5), radius: 10)
             
-            Text("Tap to speak")
+            Text("Hey there!")
                 .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundColor(ClawTheme.text)
+            
+            Text("I'm Ed, your AI buddy")
+                .font(.caption2)
                 .foregroundColor(ClawTheme.textSecondary)
             
-            Text("🦞 Ed is listening")
+            Spacer()
+            
+            // Friendly prompt
+            Text("Tap below & speak")
                 .font(.caption2)
                 .foregroundColor(ClawTheme.secondary)
             
-            Spacer()
+            Image(systemName: "arrow.down")
+                .font(.caption)
+                .foregroundColor(ClawTheme.secondary.opacity(0.6))
+            
+            Spacer().frame(height: 8)
         }
     }
     
@@ -181,51 +175,51 @@ struct OnboardingView: View {
             // Page 1: Welcome
             VStack(spacing: 12) {
                 Text("🦞")
-                    .font(.system(size: 50))
-                Text("ClawWatch")
+                    .font(.system(size: 60))
+                Text("Hey! I'm Ed")
                     .font(.headline)
                     .foregroundColor(ClawTheme.primary)
-                Text("Ed on your wrist")
-                    .font(.caption)
+                Text("Your AI buddy, now on your wrist!")
+                    .font(.caption2)
                     .foregroundColor(ClawTheme.textSecondary)
+                    .multilineTextAlignment(.center)
             }
             .tag(0)
             
             // Page 2: How it works
-            VStack(spacing: 8) {
-                Image(systemName: "mic.fill")
-                    .font(.title)
+            VStack(spacing: 10) {
+                Image(systemName: "waveform")
+                    .font(.largeTitle)
                     .foregroundColor(ClawTheme.secondary)
-                Text("Tap & Speak")
+                Text("Just Talk")
                     .font(.caption)
-                    .fontWeight(.semibold)
-                Text("Tap the mic, speak your message, Ed responds!")
+                    .fontWeight(.bold)
+                Text("Speak naturally.\nI'll listen & respond.")
                     .font(.caption2)
                     .foregroundColor(ClawTheme.textSecondary)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal)
             }
             .tag(1)
             
             // Page 3: Setup
-            VStack(spacing: 12) {
-                Image(systemName: "link.circle.fill")
-                    .font(.title)
-                    .foregroundColor(ClawTheme.primary)
-                Text("Easy Setup")
+            VStack(spacing: 10) {
+                Text("🔗")
+                    .font(.largeTitle)
+                Text("Quick Connect")
                     .font(.caption)
-                    .fontWeight(.semibold)
-                Text("Get a 6-digit code from @ClawWatchSetup_bot on Telegram")
+                    .fontWeight(.bold)
+                Text("Message @ClawWatchSetup_bot\non Telegram for your code")
                     .font(.caption2)
                     .foregroundColor(ClawTheme.textSecondary)
                     .multilineTextAlignment(.center)
                 
-                Button("Get Started") {
+                Button("Let's Go! 🦞") {
                     UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
                     isPresented = false
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(ClawTheme.primary)
+                .padding(.top, 8)
             }
             .tag(2)
         }
@@ -239,24 +233,31 @@ struct MessageBubble: View {
     let message: ChatMessage
     
     var body: some View {
-        HStack {
+        HStack(alignment: .top, spacing: 6) {
             if message.isFromUser {
-                Spacer(minLength: 20)
+                Spacer(minLength: 15)
+            } else {
+                // Ed's avatar
+                Text("🦞")
+                    .font(.caption)
             }
             
-            Text(message.text)
-                .font(.caption2)
-                .padding(10)
-                .background(
-                    message.isFromUser
-                        ? LinearGradient(colors: [ClawTheme.primary, ClawTheme.secondary], startPoint: .leading, endPoint: .trailing)
-                        : LinearGradient(colors: [ClawTheme.surface, ClawTheme.surface], startPoint: .leading, endPoint: .trailing)
-                )
-                .foregroundColor(.white)
-                .cornerRadius(16)
+            VStack(alignment: message.isFromUser ? .trailing : .leading, spacing: 2) {
+                Text(message.text)
+                    .font(.caption2)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .background(
+                        message.isFromUser
+                            ? LinearGradient(colors: [ClawTheme.primary, ClawTheme.secondary], startPoint: .leading, endPoint: .trailing)
+                            : LinearGradient(colors: [ClawTheme.surface.opacity(0.8), ClawTheme.surface], startPoint: .leading, endPoint: .trailing)
+                    )
+                    .foregroundColor(.white)
+                    .cornerRadius(14)
+            }
             
             if !message.isFromUser {
-                Spacer(minLength: 20)
+                Spacer(minLength: 15)
             }
         }
     }
@@ -403,10 +404,19 @@ class ChatViewModel: ObservableObject {
     }
     
     func speakResponse(_ text: String) {
-        guard voiceEnabled else { return }
-        let utterance = AVSpeechUtterance(string: text)
+        // Always speak responses on Watch - that's the point!
+        let cleanText = text
+            .replacingOccurrences(of: "🦞", with: "")
+            .replacingOccurrences(of: "⌚", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        guard !cleanText.isEmpty else { return }
+        
+        let utterance = AVSpeechUtterance(string: cleanText)
         utterance.voice = AVSpeechSynthesisVoice(language: "en-GB")
-        utterance.rate = 0.5
+        utterance.rate = 0.52
+        utterance.pitchMultiplier = 1.0
+        utterance.volume = 1.0
         synthesizer.speak(utterance)
     }
 }
