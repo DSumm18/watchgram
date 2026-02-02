@@ -255,12 +255,15 @@ class ChatViewModel: ObservableObject {
     
     private let synthesizer = AVSpeechSynthesizer()
     
-    // Telegram Bot Configuration
-    private var botToken: String {
-        UserDefaults.standard.string(forKey: "telegramBotToken") ?? ""
+    // Connection state (from 6-digit code setup)
+    private var isConnected: Bool {
+        UserDefaults.standard.bool(forKey: "isConnected")
     }
     private var chatId: String {
-        UserDefaults.standard.string(forKey: "telegramChatId") ?? ""
+        UserDefaults.standard.string(forKey: "chatId") ?? ""
+    }
+    private var sessionToken: String {
+        UserDefaults.standard.string(forKey: "sessionToken") ?? ""
     }
     private var voiceEnabled: Bool {
         UserDefaults.standard.bool(forKey: "voiceResponseEnabled")
@@ -277,13 +280,13 @@ class ChatViewModel: ObservableObject {
         // Haptic for send
         WKInterfaceDevice.current().play(.success)
         
-        sendToTelegram(text)
+        sendToAPI(text)
     }
     
-    private func sendToTelegram(_ text: String) {
-        guard !botToken.isEmpty, !chatId.isEmpty else {
+    private func sendToAPI(_ text: String) {
+        guard isConnected, !chatId.isEmpty else {
             let errorMessage = ChatMessage(
-                text: "⚙️ Set up your bot in Settings",
+                text: "⚙️ Connect in Settings first",
                 isFromUser: false,
                 timestamp: Date()
             )
@@ -293,21 +296,18 @@ class ChatViewModel: ObservableObject {
             return
         }
         
-        let urlString = "https://api.telegram.org/bot\(botToken)/sendMessage"
+        // Send via relay API
+        let urlString = "https://clawwatch-setup.vercel.app/api/send"
         guard let url = URL(string: urlString) else { return }
         
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
-        // Add context (time, from Watch)
-        let timeFormatter = DateFormatter()
-        timeFormatter.dateFormat = "HH:mm"
-        let contextText = "[\(timeFormatter.string(from: Date())) via ClawWatch] \(text)"
-        
         let body: [String: Any] = [
-            "chat_id": chatId,
-            "text": contextText
+            "chatId": chatId,
+            "sessionToken": sessionToken,
+            "message": text
         ]
         
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
@@ -318,7 +318,7 @@ class ChatViewModel: ObservableObject {
                     let errorMsg = ChatMessage(text: "❌ Failed to send", isFromUser: false, timestamp: Date())
                     self?.messages.append(errorMsg)
                 } else {
-                    let confirmMsg = ChatMessage(text: "✓ Sent to AI", isFromUser: false, timestamp: Date())
+                    let confirmMsg = ChatMessage(text: "✓ Sent to Ed", isFromUser: false, timestamp: Date())
                     self?.messages.append(confirmMsg)
                     
                     // Haptic confirmation
