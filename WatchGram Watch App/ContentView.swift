@@ -276,6 +276,7 @@ class ChatViewModel: ObservableObject {
     @Published var isLoading = false
     
     private let synthesizer = AVSpeechSynthesizer()
+    private var pollTimer: Timer?
     
     // Connection state (from 6-digit code setup)
     private var isConnected: Bool {
@@ -289,6 +290,56 @@ class ChatViewModel: ObservableObject {
     }
     private var voiceEnabled: Bool {
         UserDefaults.standard.bool(forKey: "voiceResponseEnabled")
+    }
+    
+    init() {
+        startPolling()
+    }
+    
+    deinit {
+        pollTimer?.invalidate()
+    }
+    
+    func startPolling() {
+        // Poll for new messages every 3 seconds
+        pollTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
+            self?.fetchMessages()
+        }
+    }
+    
+    func fetchMessages() {
+        guard isConnected, !chatId.isEmpty else { return }
+        
+        let urlString = "https://clawwatch-setup.vercel.app/api/messages?chatId=\(chatId)"
+        guard let url = URL(string: urlString) else { return }
+        
+        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+            guard let data = data, error == nil else { return }
+            
+            do {
+                if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let success = json["success"] as? Bool, success,
+                   let messages = json["messages"] as? [[String: Any]] {
+                    
+                    for msg in messages {
+                        if let text = msg["text"] as? String {
+                            DispatchQueue.main.async {
+                                let response = ChatMessage(text: text, isFromUser: false, timestamp: Date())
+                                self?.messages.append(response)
+                                
+                                // Haptic for received message
+                                WKInterfaceDevice.current().play(.notification)
+                                
+                                // Speak response if enabled
+                                self?.speakResponse(text)
+                            }
+                        }
+                    }
+                }
+            } catch {
+                print("Parse error: \(error)")
+            }
+        }.resume()
     }
     
     func sendMessage(_ text: String) {
@@ -340,11 +391,12 @@ class ChatViewModel: ObservableObject {
                     let errorMsg = ChatMessage(text: "❌ Failed to send", isFromUser: false, timestamp: Date())
                     self?.messages.append(errorMsg)
                 } else {
-                    let confirmMsg = ChatMessage(text: "✓ Sent to Ed", isFromUser: false, timestamp: Date())
-                    self?.messages.append(confirmMsg)
-                    
+                    // Don't show "Sent to Ed" - just wait for response
                     // Haptic confirmation
                     WKInterfaceDevice.current().play(.notification)
+                    
+                    // Fetch messages immediately after sending
+                    self?.fetchMessages()
                 }
             }
         }.resume()
