@@ -32,6 +32,6 @@ targets:
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         WKApplication: true
-        WKCompanionAppBundleIdentifier: ""
+        WKRunsIndependentlyOfCompanionApp: true
         NSSpeechRecognitionUsageDescription: "ClawWatch needs speech recognition to convert your voice to text messages for your AI assistant."
         NSMicrophoneUsageDescription: "ClawWatch needs microphone access to record your voice messages."
