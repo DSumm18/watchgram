@@ -86,29 +86,36 @@ struct ContentView: View {
         VStack(spacing: 12) {
             Spacer()
             
-            // Claw icon
-            ZStack {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [ClawTheme.primary, ClawTheme.secondary],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+            // Big mic button
+            Button(action: {
+                // Focus on text field to trigger keyboard/dictation
+            }) {
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [ClawTheme.primary, ClawTheme.secondary],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
                         )
-                    )
-                    .frame(width: 60, height: 60)
-                
-                Text("🦞")
-                    .font(.system(size: 30))
+                        .frame(width: 80, height: 80)
+                        .shadow(color: ClawTheme.primary.opacity(0.5), radius: 10)
+                    
+                    Image(systemName: "mic.fill")
+                        .font(.system(size: 35))
+                        .foregroundColor(.white)
+                }
             }
+            .buttonStyle(.plain)
             
-            Text("Tap mic to speak")
+            Text("Tap to speak")
                 .font(.caption)
                 .foregroundColor(ClawTheme.textSecondary)
             
-            Text("to your AI")
+            Text("🦞 Ed is listening")
                 .font(.caption2)
-                .foregroundColor(ClawTheme.textSecondary.opacity(0.7))
+                .foregroundColor(ClawTheme.secondary)
             
             Spacer()
         }
@@ -136,16 +143,31 @@ struct ContentView: View {
     }
     
     var voiceInputView: some View {
-        // TextField with dictation support - tap mic icon on keyboard
-        TextField("Tap to speak...", text: $messageText)
-            .onSubmit {
-                if !messageText.isEmpty {
+        HStack(spacing: 8) {
+            // Text input with mic icon
+            TextField("Tap to speak...", text: $messageText)
+                .onSubmit {
+                    if !messageText.isEmpty {
+                        viewModel.sendMessage(messageText)
+                        messageText = ""
+                    }
+                }
+            
+            // Send button (shows when text entered)
+            if !messageText.isEmpty {
+                Button(action: {
                     viewModel.sendMessage(messageText)
                     messageText = ""
+                }) {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.title3)
+                        .foregroundColor(ClawTheme.primary)
                 }
+                .buttonStyle(.plain)
             }
-            .padding(.horizontal, 8)
-            .padding(.bottom, 4)
+        }
+        .padding(.horizontal, 8)
+        .padding(.bottom, 4)
     }
 }
 
@@ -163,7 +185,7 @@ struct OnboardingView: View {
                 Text("ClawWatch")
                     .font(.headline)
                     .foregroundColor(ClawTheme.primary)
-                Text("Your AI on your wrist")
+                Text("Ed on your wrist")
                     .font(.caption)
                     .foregroundColor(ClawTheme.textSecondary)
             }
@@ -177,7 +199,7 @@ struct OnboardingView: View {
                 Text("Tap & Speak")
                     .font(.caption)
                     .fontWeight(.semibold)
-                Text("Tap the text field, then the mic to dictate your message")
+                Text("Tap the mic, speak your message, Ed responds!")
                     .font(.caption2)
                     .foregroundColor(ClawTheme.textSecondary)
                     .multilineTextAlignment(.center)
@@ -187,13 +209,13 @@ struct OnboardingView: View {
             
             // Page 3: Setup
             VStack(spacing: 12) {
-                Image(systemName: "gear")
+                Image(systemName: "link.circle.fill")
                     .font(.title)
                     .foregroundColor(ClawTheme.primary)
-                Text("Quick Setup")
+                Text("Easy Setup")
                     .font(.caption)
                     .fontWeight(.semibold)
-                Text("Add your Telegram bot token in Settings")
+                Text("Get a 6-digit code from @ClawWatchSetup_bot on Telegram")
                     .font(.caption2)
                     .foregroundColor(ClawTheme.textSecondary)
                     .multilineTextAlignment(.center)
