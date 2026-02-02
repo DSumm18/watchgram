@@ -26,10 +26,6 @@
     <string>ClawWatch needs microphone access to record your voice messages.</string>
     <key>WKApplication</key>
     <true/>
-    <key>WKRunsIndependentlyOfCompanionApp</key>
-    <true/>
-    <key>WKCompanionAppBundleIdentifier</key>
-    <string>com.dsumm.clawwatch.ios</string>
     <key>WKWatchOnly</key>
     <true/>
 </dict>
