@@ -1,13 +1,11 @@
 import SwiftUI
-import WatchKit
 
-// MARK: - Settings View (6-Digit Code Setup)
-struct SettingsView: View {
+// MARK: - Settings View (v2 - Simple Code Setup)
+struct SettingsViewV2: View {
     @AppStorage("isConnected") private var isConnected = false
     @AppStorage("connectedUserId") private var connectedUserId = ""
     @AppStorage("connectedUsername") private var connectedUsername = ""
     @AppStorage("sessionToken") private var sessionToken = ""
-    @AppStorage("chatId") private var chatId = ""
     
     @State private var setupCode = ""
     @State private var isVerifying = false
@@ -58,6 +56,7 @@ struct SettingsView: View {
                         
                         TextField("000000", text: $setupCode)
                             .font(.system(.title3, design: .monospaced))
+                            .keyboardType(.numberPad)
                             .multilineTextAlignment(.center)
                             .onChange(of: setupCode) { newValue in
                                 // Limit to 6 digits
@@ -124,7 +123,7 @@ struct SettingsView: View {
         }
         .navigationTitle("Settings")
         .sheet(isPresented: $showingSetupGuide) {
-            SetupGuideView()
+            SetupGuideViewV2()
         }
         .alert("Disconnect?", isPresented: $showingDisconnectConfirm) {
             Button("Cancel", role: .cancel) { }
@@ -144,19 +143,13 @@ struct SettingsView: View {
         isVerifying = true
         errorMessage = nil
         
-        // API endpoint
-        guard let apiURL = URL(string: "https://clawwatch-setup.vercel.app/api/verify") else {
-            errorMessage = "Invalid URL"
-            isVerifying = false
-            return
-        }
+        // API endpoint (update for production)
+        let apiURL = URL(string: "https://clawwatch-api.schoolgle.co.uk/api/verify-code")!
         
         var request = URLRequest(url: apiURL)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        let body = ["code": setupCode]
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        request.httpBody = try? JSONEncoder().encode(["code": setupCode])
         
         URLSession.shared.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
@@ -174,33 +167,21 @@ struct SettingsView: View {
                 }
                 
                 do {
-                    if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                        if let success = json["success"] as? Bool, success,
-                           let config = json["config"] as? [String: Any] {
-                            // Save connection info
-                            if let userId = config["userId"] as? Int {
-                                connectedUserId = String(userId)
-                            }
-                            if let chatIdVal = config["chatId"] as? Int {
-                                chatId = String(chatIdVal)
-                            }
-                            if let username = config["username"] as? String {
-                                connectedUsername = username
-                            }
-                            if let token = config["sessionToken"] as? String {
-                                sessionToken = token
-                            }
-                            
-                            isConnected = true
-                            setupCode = ""
-                            
-                            // Haptic feedback
-                            WKInterfaceDevice.current().play(.success)
-                        } else {
-                            let errorMsg = json["error"] as? String ?? "Invalid code"
-                            errorMessage = errorMsg
-                            WKInterfaceDevice.current().play(.failure)
-                        }
+                    let result = try JSONDecoder().decode(VerifyResponse.self, from: data)
+                    
+                    if result.success, let config = result.config {
+                        // Save connection info
+                        connectedUserId = String(config.userId)
+                        connectedUsername = config.username ?? ""
+                        sessionToken = config.sessionToken ?? ""
+                        isConnected = true
+                        setupCode = ""
+                        
+                        // Haptic feedback
+                        WKInterfaceDevice.current().play(.success)
+                    } else {
+                        errorMessage = result.error ?? "Invalid code"
+                        WKInterfaceDevice.current().play(.failure)
                     }
                 } catch {
                     errorMessage = "Invalid response"
@@ -215,13 +196,29 @@ struct SettingsView: View {
         connectedUserId = ""
         connectedUsername = ""
         sessionToken = ""
-        chatId = ""
     }
 }
 
-// MARK: - Setup Guide
+// MARK: - API Response Models
 
-struct SetupGuideView: View {
+struct VerifyResponse: Codable {
+    let success: Bool
+    let error: String?
+    let config: ConnectionConfig?
+}
+
+struct ConnectionConfig: Codable {
+    let userId: Int
+    let chatId: Int
+    let username: String?
+    let firstName: String?
+    let apiEndpoint: String?
+    let sessionToken: String?
+}
+
+// MARK: - Setup Guide v2
+
+struct SetupGuideViewV2: View {
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
@@ -244,7 +241,7 @@ struct SetupGuideView: View {
                 
                 stepView(number: "2", 
                         title: "Message the bot", 
-                        detail: "Search: @ClawWatchSetup_bot")
+                        detail: "Search: @ClawWatchSetup")
                 
                 stepView(number: "3", 
                         title: "Get your code", 
@@ -294,51 +291,8 @@ struct SetupGuideView: View {
     }
 }
 
-// MARK: - About View
-struct AboutView: View {
-    @Environment(\.dismiss) private var dismiss
-    
-    var body: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                Text("🦞")
-                    .font(.system(size: 50))
-                
-                Text("ClawWatch")
-                    .font(.headline)
-                    .foregroundColor(ClawTheme.primary)
-                
-                Text("Voice for AI")
-                    .font(.caption)
-                    .foregroundColor(ClawTheme.textSecondary)
-                
-                Divider()
-                    .background(ClawTheme.surface)
-                
-                Text("Talk to your AI assistant hands-free from your Apple Watch.")
-                    .font(.caption2)
-                    .foregroundColor(ClawTheme.textSecondary)
-                    .multilineTextAlignment(.center)
-                
-                Text("Powered by OpenClaw")
-                    .font(.caption2)
-                    .foregroundColor(ClawTheme.secondary)
-                
-                Spacer()
-                
-                Button("Close") {
-                    dismiss()
-                }
-                .buttonStyle(.bordered)
-            }
-            .padding()
-        }
-        .background(ClawTheme.background)
-    }
-}
-
 #Preview {
     NavigationStack {
-        SettingsView()
+        SettingsViewV2()
     }
 }
