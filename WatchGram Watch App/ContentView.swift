@@ -41,6 +41,7 @@ struct ContentView: View {
     @StateObject private var viewModel = ChatViewModel()
     @State private var showOnboarding = !UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
     @State private var messageText = ""
+    @State private var showingInput = false
     
     var body: some View {
         Group {
@@ -83,35 +84,64 @@ struct ContentView: View {
     }
     
     var welcomeView: some View {
-        VStack(spacing: 8) {
-            Spacer()
-            
-            // Animated lobster
-            Text("🦞")
-                .font(.system(size: 50))
-                .shadow(color: ClawTheme.primary.opacity(0.5), radius: 10)
-            
-            Text("Hey there!")
+        VStack(spacing: 6) {
+            Text("Hey! I'm Ed 🦞")
                 .font(.caption)
                 .fontWeight(.semibold)
                 .foregroundColor(ClawTheme.text)
             
-            Text("I'm Ed, your AI buddy")
+            Text("Tap me to chat!")
                 .font(.caption2)
                 .foregroundColor(ClawTheme.textSecondary)
             
             Spacer()
             
-            // Friendly prompt
-            Text("Tap below & speak")
+            // Lobster mic button - THE main interaction
+            Button(action: { showingInput = true }) {
+                ZStack {
+                    // Outer glow ring
+                    Circle()
+                        .stroke(
+                            LinearGradient(
+                                colors: [ClawTheme.primary.opacity(0.6), ClawTheme.secondary.opacity(0.6)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 3
+                        )
+                        .frame(width: 95, height: 95)
+                    
+                    // Inner circle
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [ClawTheme.surface, ClawTheme.background],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .frame(width: 85, height: 85)
+                    
+                    // Lobster + mic
+                    VStack(spacing: 2) {
+                        Text("🦞")
+                            .font(.system(size: 40))
+                        Image(systemName: "mic.fill")
+                            .font(.caption)
+                            .foregroundColor(ClawTheme.secondary)
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+            .sheet(isPresented: $showingInput) {
+                VoiceInputSheet(viewModel: viewModel, isPresented: $showingInput)
+            }
+            
+            Spacer()
+            
+            Text("Tap the lobster!")
                 .font(.caption2)
-                .foregroundColor(ClawTheme.secondary)
-            
-            Image(systemName: "arrow.down")
-                .font(.caption)
-                .foregroundColor(ClawTheme.secondary.opacity(0.6))
-            
-            Spacer().frame(height: 8)
+                .foregroundColor(ClawTheme.secondary.opacity(0.7))
         }
     }
     
@@ -260,6 +290,48 @@ struct MessageBubble: View {
                 Spacer(minLength: 15)
             }
         }
+    }
+}
+
+// MARK: - Voice Input Sheet
+struct VoiceInputSheet: View {
+    @ObservedObject var viewModel: ChatViewModel
+    @Binding var isPresented: Bool
+    @State private var messageText = ""
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            Text("🦞")
+                .font(.title)
+            
+            Text("What's up?")
+                .font(.caption)
+                .foregroundColor(ClawTheme.textSecondary)
+            
+            TextField("Tap mic to speak...", text: $messageText)
+                .multilineTextAlignment(.center)
+            
+            HStack(spacing: 20) {
+                Button("Cancel") {
+                    isPresented = false
+                }
+                .foregroundColor(ClawTheme.textSecondary)
+                
+                Button("Send") {
+                    if !messageText.isEmpty {
+                        viewModel.sendMessage(messageText)
+                        messageText = ""
+                        isPresented = false
+                    }
+                }
+                .foregroundColor(ClawTheme.primary)
+                .fontWeight(.semibold)
+                .disabled(messageText.isEmpty)
+            }
+            .font(.caption)
+        }
+        .padding()
+        .background(ClawTheme.background)
     }
 }
 
