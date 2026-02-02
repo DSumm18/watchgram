@@ -18,13 +18,16 @@ targets:
       - path: "WatchGram Watch App"
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.dsumm.clawwatch.watchkitapp
+        PRODUCT_BUNDLE_IDENTIFIER: com.dsumm.clawwatch
         PRODUCT_NAME: ClawWatch
         INFOPLIST_FILE: "WatchGram Watch App/Info.plist"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         SWIFT_VERSION: "5.9"
         CODE_SIGN_STYLE: Automatic
         ENABLE_PREVIEWS: YES
+        GENERATE_INFOPLIST_FILE: NO
+        SUPPORTS_MACCATALYST: NO
+        WATCHOS_DEPLOYMENT_TARGET: "10.0"
     info:
       path: "WatchGram Watch App/Info.plist"
       properties:
