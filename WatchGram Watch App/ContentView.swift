@@ -84,13 +84,13 @@ struct ContentView: View {
     }
     
     var welcomeView: some View {
-        VStack(spacing: 10) {
+        VStack {
             Spacer()
             
-            // Lobster mic button - THE main interaction
+            // Lobster mic button - centered, clean, simple
             Button(action: { showingInput = true }) {
                 ZStack {
-                    // Outer glow ring
+                    // Pulsing outer ring
                     Circle()
                         .stroke(
                             LinearGradient(
@@ -100,25 +100,19 @@ struct ContentView: View {
                             ),
                             lineWidth: 4
                         )
-                        .frame(width: 110, height: 110)
+                        .frame(width: 120, height: 120)
                     
                     // Inner circle
                     Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [ClawTheme.surface, ClawTheme.background],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                        .frame(width: 100, height: 100)
+                        .fill(ClawTheme.surface)
+                        .frame(width: 108, height: 108)
                     
-                    // Lobster + mic
-                    VStack(spacing: 4) {
+                    // Lobster + mic icon
+                    VStack(spacing: 6) {
                         Text("🦞")
-                            .font(.system(size: 45))
+                            .font(.system(size: 50))
                         Image(systemName: "mic.fill")
-                            .font(.body)
+                            .font(.callout)
                             .foregroundColor(ClawTheme.secondary)
                     }
                 }
@@ -127,10 +121,6 @@ struct ContentView: View {
             .fullScreenCover(isPresented: $showingInput) {
                 ChatScreen(viewModel: viewModel, isPresented: $showingInput)
             }
-            
-            Text("Tap to talk to Ed")
-                .font(.caption)
-                .foregroundColor(ClawTheme.textSecondary)
             
             Spacer()
         }
@@ -158,31 +148,34 @@ struct ContentView: View {
     }
     
     var voiceInputView: some View {
-        HStack(spacing: 8) {
-            // Text input with mic icon
-            TextField("Tap to speak...", text: $messageText)
-                .onSubmit {
+        // Only show when we have messages (in conversation)
+        Group {
+            if !viewModel.messages.isEmpty {
+                HStack(spacing: 8) {
+                    TextField("Tap to speak...", text: $messageText)
+                        .onSubmit {
+                            if !messageText.isEmpty {
+                                viewModel.sendMessage(messageText)
+                                messageText = ""
+                            }
+                        }
+                    
                     if !messageText.isEmpty {
-                        viewModel.sendMessage(messageText)
-                        messageText = ""
+                        Button(action: {
+                            viewModel.sendMessage(messageText)
+                            messageText = ""
+                        }) {
+                            Image(systemName: "arrow.up.circle.fill")
+                                .font(.title3)
+                                .foregroundColor(ClawTheme.primary)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
-            
-            // Send button (shows when text entered)
-            if !messageText.isEmpty {
-                Button(action: {
-                    viewModel.sendMessage(messageText)
-                    messageText = ""
-                }) {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.title3)
-                        .foregroundColor(ClawTheme.primary)
-                }
-                .buttonStyle(.plain)
+                .padding(.horizontal, 8)
+                .padding(.bottom, 4)
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.bottom, 4)
     }
 }
 
